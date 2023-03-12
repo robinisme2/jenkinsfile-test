@@ -1,16 +1,18 @@
 node {
     checkout scm
-    docker.image('mysql:8-oracle').withRun('-e "MYSQL_ROOT_PASSWORD=my-secret-pw"') { c ->
-        docker.image('mysql:8-oracle').inside("--link ${c.id}:db") {
-            /* Wait until mysql service is up */
-            sh 'while ! mysqladmin ping -hdb --silent; do sleep 1; done'
+    sh 'docker network create bridge1';
+    sh(script:'docker run --net bridge1 --name mysql -d -e "MYSQL_ROOT_PASSWORD=my-secret-pw" -e "MYSQL_DATABASE=test" mysql:5.7', returnStdout: true)
+    sh(script:'docker run --net bridge1 --name redis -d redis:5', returnStdout: true)
+    def testImage = docker.build("test-image:${env.BUILD_ID}", "-f Dockerfile ./")
+    testImage.inside('--net bridge1 -e "DB_HOST=mysql" -e "REDIS_HOST=redis" -e "DB_DATABASE=test" -e "DB_USERNAME=root" -e "DB_PASSWORD=my-secret-pw"') {
+        stage('Prepare') {
+            echo 'preparing'
+            sh 'env'
+            sh 'apt-get update && apt-get install -y librsvg2-bin'
         }
-        docker.image('oraclelinux:9').inside("--link ${c.id}:db") {
-            /*
-             * Run some tests which require MySQL, and assume that it is
-             * available on the host name `db`
-             */
-            sh 'make check'
+        stage('Test') {
+            echo 'testing...'
+            sh 'ls'
         }
     }
 }
