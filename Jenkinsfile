@@ -5,7 +5,11 @@ node {
     sh(script:'docker run --net bridge1 --name redis -d redis:5', returnStdout: true)
 
     docker.image('mysql:8-oracle').inside('--net bridge1 -e "DB_HOST=mysql" -e "REDIS_HOST=redis" -e "DB_DATABASE=test" -e "DB_USERNAME=root" -e "DB_PASSWORD=my-secret-pw"') {
-        sh 'mysqladmin ping -h$DB_HOST'
+        sh 'mysqladmin ping -h$DB_HOST -u$DB_USERNAME -p$DB_PASSWORD'
     }
-    sh 'docker rm -f mysql redis; docker network rm bridge1';
+    post { 
+        always { 
+            sh 'docker rm -f mysql redis; docker network rm bridge1';
+        }
+    }
 }
